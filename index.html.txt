@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Transparent Photo Memo</title>
+    <style>
+        /* モバイルファースト・リセットスタイル */
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body, html {
+            height: 100%;
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", Arial, sans-serif;
+            background-color: #121212;
+            overflow: hidden; /* スクロールを固定しアプリ感を出す */
+        }
+
+        /* 背景画像表示エリア */
+        #bg-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-size: cover;
+            background-position: center;
+            z-index: 1;
+            transition: background-image 0.3s ease-in-out;
+        }
+
+        /* メインレイアウト（iPhoneの上下余白・セーフエリアを考慮） */
+        #content {
+            position: relative;
+            z-index: 2;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            padding: 20px;
+            padding-top: calc(20px + env(safe-area-inset-top));
+            padding-bottom: calc(20px + env(safe-area-inset-bottom));
+        }
+
+        /* テキストエリア（完全に透明、文字に強力なシャドウ） */
+        #memo-text {
+            flex-grow: 1;
+            width: 100%;
+            
+            /* 要望1: 完全な透明にする */
+            background-color: transparent; 
+            
+            /* 要望1: 画像がボヤける原因だった効果を削除 */
+            backdrop-filter: none; 
+            -webkit-backdrop-filter: none;
+            
+            /* 要望2: 文字を後ろの画像が見やすい色（白）に変更 */
+            color: #ffffff; 
+            
+            /* 重要: iPhoneでフォーカス時に画面が勝手にズームしないよう16pxに設定 */
+            font-size: 16px; 
+            line-height: 1.6;
+            padding: 20px;
+            
+            /* テキストエリアの存在をわずかに示す境界線（より薄く） */
+            border: 1px solid rgba(255, 255, 255, 0.1); 
+            border-radius: 20px;
+            resize: none;
+            outline: none;
+            
+            /* 要望2の補強: 文字の視認性を高める強力なシャドウ */
+            /* 白文字の周囲に濃い黒い影を落とし、どんな背景でも浮き立たせる */
+            text-shadow: 2px 2px 5px rgba(0, 0, 0, 0.8);
+            
+            margin-bottom: 20px;
+            -webkit-appearance: none; /* iOS特有のインセットシャドウを消す */
+        }
+
+        #memo-text::placeholder {
+            /* プレースホルダーは少し薄く */
+            color: rgba(255, 255, 255, 0.5); 
+        }
+
+        /* 下部コントロールエリア */
+        .controls {
+            display: flex;
+            justify-content: center;
+        }
+
+        /* モダンなフローティングボタン */
+        .upload-btn {
+            background-color: rgba(255, 255, 255, 0.9);
+            color: #000000;
+            padding: 14px 28px;
+            border-radius: 40px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+            transition: background-color 0.2s, transform 0.1s;
+        }
+
+        .upload-btn:active {
+            background-color: rgba(255, 255, 255, 0.7);
+            transform: scale(0.96); /* タップした時の縮小フィードバック */
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="bg-container"></div>
+
+    <div id="content">
+        <textarea id="memo-text" placeholder="ここをタップして文字を入力してください...&#10;※画面を閉じたりリロードすると内容はリセットされます。"></textarea>
+        
+        <div class="controls">
+            <label for="image-upload" class="upload-btn">
+                📸 背景写真を変更
+            </label>
+            <input type="file" id="image-upload" accept="image/*">
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const bgContainer = document.getElementById('bg-container');
+            const imageUpload = document.getElementById('image-upload');
+            let currentObjectURL = null;
+
+            // 画像が選択された時の処理（メモリ上に一時展開して表示するだけ）
+            imageUpload.addEventListener('change', (event) => {
+                const file = event.target.files[0];
+                if (!file) return;
+
+                // スマホのメモリ負荷を下げるため、古い画像データは解放する
+                if (currentObjectURL) {
+                    URL.revokeObjectURL(currentObjectURL);
+                }
+
+                // 選択された高画質な写真をそのまま表示用URLに変換（無圧縮なので超高画質）
+                currentObjectURL = URL.createObjectURL(file);
+                bgContainer.style.backgroundImage = `url(${currentObjectURL})`;
+            });
+        });
+    </script>
+</body>
+</html>
