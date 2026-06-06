@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>High-Res Photo Memo</title>
+    <style>
+        /* モバイルファースト・リセットスタイル */
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body, html {
+            height: 100%;
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", Arial, sans-serif;
+            background-color: #121212;
+            overflow: hidden; /* スクロールを固定しアプリ感を出す */
+        }
+
+        /* 背景画像表示エリア */
+        #bg-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-size: cover;
+            background-position: center;
+            z-index: 1;
+            transition: background-image 0.4s ease-in-out;
+        }
+
+        /* メインレイアウト（iPhoneのセーフエリアを考慮） */
+        #content {
+            position: relative;
+            z-index: 2;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            padding: 20px;
+            padding-top: calc(20px + env(safe-area-inset-top));
+            padding-bottom: calc(20px + env(safe-area-inset-bottom));
+        }
+
+        /* テキストエリア（すりガラス効果＋シャドウ） */
+        #memo-text {
+            flex-grow: 1;
+            width: 100%;
+            background-color: rgba(0, 0, 0, 0.35); /* 半透明の黒 */
+            backdrop-filter: blur(12px); /* 背景をボカす高級感あるエフェクト */
+            -webkit-backdrop-filter: blur(12px); /* iOS Safari用 */
+            color: #ffffff;
+            
+            /* 重要: iPhoneでフォーカス時に勝手にズームしないよう16px以上に設定 */
+            font-size: 16px; 
+            line-height: 1.6;
+            padding: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 20px;
+            resize: none;
+            outline: none;
+            
+            /* 文字の視認性を高めるシャドウ */
+            text-shadow: 1px 1px 4px rgba(0, 0, 0, 0.6);
+            margin-bottom: 20px;
+            -webkit-appearance: none; /* iOS特有のインセットシャドウを消す */
+        }
+
+        #memo-text::placeholder {
+            color: rgba(255, 255, 255, 0.5);
+        }
+
+        /* 下部コントロールエリア */
+        .controls {
+            display: flex;
+            justify-content: center;
+        }
+
+        /* モダンなフローティングボタン */
+        .upload-btn {
+            background-color: rgba(255, 255, 255, 0.9);
+            color: #000000;
+            padding: 14px 28px;
+            border-radius: 40px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+            transition: background-color 0.2s, transform 0.1s;
+        }
+
+        .upload-btn:active {
+            background-color: rgba(255, 255, 255, 0.7);
+            transform: scale(0.96); /* タップした時の気持ちいい縮小フィードバック */
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="bg-container"></div>
+
+    <div id="content">
+        <textarea id="memo-text" placeholder="ここをタップして文字を入力してください...&#10;（入力内容は自動で保存されます）"></textarea>
+        
+        <div class="controls">
+            <label for="image-upload" class="upload-btn">
+                📸 背景写真を変更
+            </label>
+            <input type="file" id="image-upload" accept="image/*">
+        </div>
+    </div>
+
+    <script>
+        // --- 高画質画像保存用の IndexedDB 設定 ---
+        const DB_NAME = 'HighResPhotoMemoDB';
+        const STORE_NAME = 'images';
+        let db;
+
+        function initDB() {
+            return new Promise((resolve, reject) => {
+                const request = indexedDB.open(DB_NAME, 1);
+                request.onupgradeneeded = (e) => {
+                    e.target.result.createObjectStore(STORE_NAME);
+                };
+                request.onsuccess = (e) => {
+                    db = e.target.result;
+                    resolve();
+                };
+                request.onerror = (e) => reject(e);
+            });
+        }
+
+        function saveImage(blob) {
+            return new Promise((resolve, reject) => {
+                const transaction = db.transaction([STORE_NAME], 'readwrite');
+                const store = transaction.objectStore(STORE_NAME);
+                const request = store.put(blob, 'currentBg');
+                request.onsuccess = () => resolve();
+                request.onerror = (e) => reject(e);
+            });
+        }
+
+        function loadImage() {
+            return new Promise((resolve, reject) => {
+                const transaction = db.transaction([STORE_NAME], 'readonly');
+                const store = transaction.objectStore(STORE_NAME);
+                const request = store.get('currentBg');
+                request.onsuccess = (e) => resolve(e.target.result);
+                request.onerror = (e) => reject(e);
+            });
+        }
+
+        // --- メイン処理 ---
+        document.addEventListener('DOMContentLoaded', async () => {
+            const bgContainer = document.getElementById('bg-container');
+            const memoText = document.getElementById('memo-text');
+            const imageUpload = document.getElementById('image-upload');
+            const STORAGE_KEY_TEXT = 'photoMemo_text';
+
+            // 1. テキストの読み込みと自動保存 (LocalStorage)
+            const savedText = localStorage.getItem(STORAGE_KEY_TEXT);
+            if (savedText) memoText.value = savedText;
+
+            memoText.addEventListener('input', () => {
+                localStorage.setItem(STORAGE_KEY_TEXT, memoText.value);
+            });
+
+            // 2. 高画質画像の読み込みと表示 (IndexedDB)
+            try {
+                await initDB();
+                const blob = await loadImage();
+                if (blob) {
+                    const objectURL = URL.createObjectURL(blob);
+                    bgContainer.style.backgroundImage = `url(${objectURL})`;
+                }
+            } catch (err) {
+                console.error("データの読み込みに失敗しました:", err);
+            }
+
+            // 3. 画像がアップロードされた時の処理（無圧縮で保存）
+            imageUpload.addEventListener('change', async (event) => {
+                const file = event.target.files[0];
+                if (!file) return;
+
+                try {
+                    // 高画質な写真データ（Blob）をそのまま保存
+                    await saveImage(file);
+                    
+                    // 画面に即座に反映
+                    const objectURL = URL.createObjectURL(file);
+                    bgContainer.style.backgroundImage = `url(${objectURL})`;
+                } catch (err) {
+                    alert('画像の保存に失敗しました。ファイルが破損している可能性があります。');
+                    console.error(err);
+                }
+            });
+        });
+    </script>
+</body>
+</html>
