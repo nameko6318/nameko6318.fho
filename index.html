@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <title>Transparent Photo Memo</title>
+    <title>Photo & Text App</title>
     <style>
         /* モバイルファースト・リセットスタイル */
         * {
@@ -12,14 +12,16 @@
             padding: 0;
         }
 
-        body, html {
+        /* 重要: スマホでの「引っ張ってリロード」を防止する設定 */
+        html, body {
             height: 100%;
             font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", Arial, sans-serif;
             background-color: #121212;
-            overflow: hidden; /* スクロールを固定しアプリ感を出す */
+            overflow: hidden; 
+            overscroll-behavior-y: contain; /* 上下の引っ張りバウンスとリロードを禁止 */
         }
 
-        /* 背景画像表示エリア */
+        /* 全画面背景画像 */
         #bg-container {
             position: absolute;
             top: 0;
@@ -29,11 +31,11 @@
             background-size: cover;
             background-position: center;
             z-index: 1;
-            transition: background-image 0.3s ease-in-out;
+            transition: background-image 0.4s ease;
         }
 
-        /* メインレイアウト（iPhoneの上下余白・セーフエリアを考慮） */
-        #content {
+        /* 画面共通のレイアウト */
+        .screen {
             position: relative;
             z-index: 2;
             display: flex;
@@ -44,71 +46,149 @@
             padding-bottom: calc(20px + env(safe-area-inset-bottom));
         }
 
-        /* テキストエリア（完全に透明、文字に強力なシャドウ） */
-        #memo-text {
-            flex-grow: 1;
-            width: 100%;
-            
-            /* 要望1: 完全な透明にする */
-            background-color: transparent; 
-            
-            /* 要望1: 画像がボヤける原因だった効果を削除 */
-            backdrop-filter: none; 
-            -webkit-backdrop-filter: none;
-            
-            /* 要望2: 文字を後ろの画像が見やすい色（白）に変更 */
-            color: #ffffff; 
-            
-            /* 重要: iPhoneでフォーカス時に画面が勝手にズームしないよう16pxに設定 */
-            font-size: 16px; 
-            line-height: 1.6;
-            padding: 20px;
-            
-            /* テキストエリアの存在をわずかに示す境界線（より薄く） */
-            border: 1px solid rgba(255, 255, 255, 0.1); 
-            border-radius: 20px;
-            resize: none;
-            outline: none;
-            
-            /* 要望2の補強: 文字の視認性を高める強力なシャドウ */
-            /* 白文字の周囲に濃い黒い影を落とし、どんな背景でも浮き立たせる */
-            text-shadow: 2px 2px 5px rgba(0, 0, 0, 0.8);
-            
-            margin-bottom: 20px;
-            -webkit-appearance: none; /* iOS特有のインセットシャドウを消す */
-        }
-
-        #memo-text::placeholder {
-            /* プレースホルダーは少し薄く */
-            color: rgba(255, 255, 255, 0.5); 
-        }
-
-        /* 下部コントロールエリア */
-        .controls {
-            display: flex;
+        /* ----------------------------------
+           1. 設定画面（スタート画面）のスタイル
+        ------------------------------------- */
+        #setup-screen {
             justify-content: center;
+            align-items: center;
+            background-color: rgba(18, 18, 18, 0.85); /* 決定前は背景を少し暗くして操作しやすく */
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
         }
 
-        /* モダンなフローティングボタン */
-        .upload-btn {
-            background-color: rgba(255, 255, 255, 0.9);
+        .setup-card {
+            width: 100%;
+            max-width: 340px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 24px;
+            padding: 24px;
+            text-align: center;
+            color: #ffffff;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+
+        .setup-card h2 {
+            font-size: 1.2rem;
+            margin-bottom: 20px;
+            font-weight: 600;
+        }
+
+        .setup-section {
+            margin-bottom: 24px;
+            text-align: left;
+        }
+
+        .setup-section label {
+            display: block;
+            font-size: 0.85rem;
+            color: rgba(255, 255, 255, 0.7);
+            margin-bottom: 8px;
+            font-weight: 500;
+        }
+
+        /* 写真選択ボタン */
+        .file-label {
+            display: block;
+            background: #ffffff;
             color: #000000;
-            padding: 14px 28px;
-            border-radius: 40px;
-            font-size: 15px;
+            padding: 12px;
+            text-align: center;
+            border-radius: 12px;
+            font-weight: 600;
+            font-size: 0.9rem;
+            cursor: pointer;
+        }
+        
+        .file-status {
+            font-size: 0.8rem;
+            color: #4cd964;
+            margin-top: 6px;
+            text-align: center;
+            display: none;
+        }
+
+        /* 文字色選択（トグル形式） */
+        .color-selector {
+            display: flex;
+            gap: 10px;
+        }
+
+        .color-btn {
+            flex: 1;
+            background: rgba(255, 255, 255, 0.15);
+            border: 2px solid transparent;
+            color: #ffffff;
+            padding: 12px;
+            border-radius: 12px;
+            font-size: 0.9rem;
             font-weight: 600;
             cursor: pointer;
-            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
-            transition: background-color 0.2s, transform 0.1s;
+            transition: all 0.2s;
         }
 
-        .upload-btn:active {
-            background-color: rgba(255, 255, 255, 0.7);
-            transform: scale(0.96); /* タップした時の縮小フィードバック */
+        .color-btn.active {
+            border-color: #007aff;
+            background: rgba(0, 122, 255, 0.2);
+        }
+
+        /* 開始ボタン */
+        .start-btn {
+            width: 100%;
+            background: #007aff;
+            color: #ffffff;
+            border: none;
+            padding: 14px;
+            border-radius: 14px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(0, 122, 255, 0.3);
+        }
+
+        .start-btn:disabled {
+            background: #444444;
+            color: rgba(255,255,255,0.4);
+            box-shadow: none;
+            cursor: not-allowed;
         }
 
         input[type="file"] {
             display: none;
+        }
+
+        /* ----------------------------------
+           2. メイン画面（テキスト表示）のスタイル
+        ------------------------------------- */
+        #main-screen {
+            display: none; /* 初期状態は非表示 */
+        }
+
+        /* テキストエリア（完全透明、余計なボタンは一切なし） */
+        #memo-text {
+            flex-grow: 1;
+            width: 100%;
+            background-color: transparent; 
+            border: none;
+            resize: none;
+            outline: none;
+            font-size: 16px; /* iPhoneズーム防止 */
+            line-height: 1.6;
+            padding: 10px;
+            -webkit-appearance: none;
+            
+            /* どんな背景でも文字が見えるようにする強力なシャドウ */
+            text-shadow: 2px 2px 6px rgba(0, 0, 0, 0.9), -1px -1px 3px rgba(0, 0, 0, 0.5);
+        }
+
+        /* JavaScriptで動的に文字色を切り替えるクラス */
+        .text-color-white { color: #ffffff !important; }
+        .text-color-gray { color: #cccccc !important; } /* 見やすいライトグレー */
+
+        #memo-text::placeholder {
+            color: rgba(255, 255, 255, 0.4);
+            text-shadow: none;
         }
     </style>
 </head>
@@ -116,36 +196,92 @@
 
     <div id="bg-container"></div>
 
-    <div id="content">
-        <textarea id="memo-text" placeholder="ここをタップして文字を入力してください...&#10;※画面を閉じたりリロードすると内容はリセットされます。"></textarea>
-        
-        <div class="controls">
-            <label for="image-upload" class="upload-btn">
-                📸 背景写真を変更
-            </label>
-            <input type="file" id="image-upload" accept="image/*">
+    <div id="setup-screen" class="screen">
+        <div class="setup-card">
+            <h2>アプリの設定</h2>
+            
+            <div class="setup-section">
+                <label>① 背景写真</label>
+                <label for="image-upload" class="file-label">📸 写真を設定する</label>
+                <input type="file" id="image-upload" accept="image/*">
+                <div id="file-status" class="file-status">✓ 写真が読み込まれました</div>
+            </div>
+
+            <div class="setup-section">
+                <label>② 文字の色</label>
+                <div class="color-selector">
+                    <button type="button" class="color-btn active" data-color="white">白色</button>
+                    <button type="button" class="color-btn" data-color="gray">グレー</button>
+                </div>
+            </div>
+
+            <button type="button" id="start-btn" class="start-btn" disabled>決定して文章を入力</button>
         </div>
+    </div>
+
+    <div id="main-screen" class="screen">
+        <textarea id="memo-text" placeholder="ここをタップして文字を入力してください...&#10;&#10;（やり直したい時は、ブラウザの更新ボタンで最初の画面に戻れます）"></textarea>
     </div>
 
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             const bgContainer = document.getElementById('bg-container');
             const imageUpload = document.getElementById('image-upload');
+            const fileStatus = document.getElementById('file-status');
+            const colorButtons = document.querySelectorAll('.color-btn');
+            const startBtn = document.getElementById('start-btn');
+            
+            const setupScreen = document.getElementById('setup-screen');
+            const mainScreen = document.getElementById('main-screen');
+            const memoText = document.getElementById('memo-text');
+
+            let selectedColor = 'white'; // デフォルトは白
             let currentObjectURL = null;
 
-            // 画像が選択された時の処理（メモリ上に一時展開して表示するだけ）
+            // 1. 画像が選択された時の処理
             imageUpload.addEventListener('change', (event) => {
                 const file = event.target.files[0];
                 if (!file) return;
 
-                // スマホのメモリ負荷を下げるため、古い画像データは解放する
                 if (currentObjectURL) {
                     URL.revokeObjectURL(currentObjectURL);
                 }
 
-                // 選択された高画質な写真をそのまま表示用URLに変換（無圧縮なので超高画質）
                 currentObjectURL = URL.createObjectURL(file);
                 bgContainer.style.backgroundImage = `url(${currentObjectURL})`;
+                
+                // 選択状態のUI更新
+                fileStatus.style.display = 'block';
+                startBtn.disabled = false; // 写真が選ばれたらスタート可能に
+            });
+
+            // 2. 文字色ボタンの切り替え処理
+            colorButtons.forEach(button => {
+                button.addEventListener('click', () => {
+                    colorButtons.forEach(btn => btn.classList.remove('active'));
+                    button.classList.add('active');
+                    selectedColor = button.getAttribute('data-color');
+                });
+            });
+
+            // 3. 決定ボタンを押してメイン画面へ進む処理
+            startBtn.addEventListener('click', () => {
+                // 文字色のクラスを適用
+                if (selectedColor === 'white') {
+                    memoText.classList.add('text-color-white');
+                } else {
+                    memoText.classList.add('text-color-gray');
+                }
+
+                // 画面切り替え
+                setupScreen.style.display = 'none';
+                mainScreen.style.display = 'flex';
+                
+                // 設定画面の背景マスクを解除して写真を100%綺麗に見せる
+                setupScreen.style.backgroundColor = 'transparent'; 
+                
+                // 自動でテキストエリアにフォーカスを合わせる
+                memoText.focus();
             });
         });
     </script>
