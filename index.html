@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <title>Photo & Text App</title>
+    <title>Multi-Photo & Text App</title>
     <style>
         /* モバイルファースト・リセットスタイル */
         * {
@@ -12,29 +12,37 @@
             padding: 0;
         }
 
-        /* 重要: スマホでの「引っ張ってリロード」を防止する設定 */
+        /* スマホでの「引っ張ってリロード」を物理的に防止 */
         html, body {
             height: 100%;
             font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", Arial, sans-serif;
             background-color: #121212;
             overflow: hidden; 
-            overscroll-behavior-y: contain; /* 上下の引っ張りバウンスとリロードを禁止 */
+            overscroll-behavior-y: contain;
         }
 
-        /* 全画面背景画像 */
-        #bg-container {
+        /* 背景画像ラッパー（Flexboxで隙間なく横並びにする） */
+        #bg-wrapper {
             position: absolute;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
+            display: flex;
+            gap: 0; /* 隙間をゼロに固定 */
+            z-index: 1;
+        }
+
+        .bg-img {
+            flex: 1;
+            height: 100%;
             background-size: cover;
             background-position: center;
-            z-index: 1;
+            background-color: #333;
             transition: background-image 0.4s ease;
         }
 
-        /* 画面共通のレイアウト */
+        /* 画面共通レイアウト */
         .screen {
             position: relative;
             z-index: 2;
@@ -52,7 +60,7 @@
         #setup-screen {
             justify-content: center;
             align-items: center;
-            background-color: rgba(18, 18, 18, 0.85); /* 決定前は背景を少し暗くして操作しやすく */
+            background-color: rgba(18, 18, 18, 0.85);
             backdrop-filter: blur(10px);
             -webkit-backdrop-filter: blur(10px);
         }
@@ -76,16 +84,41 @@
         }
 
         .setup-section {
-            margin-bottom: 24px;
+            margin-bottom: 20px;
             text-align: left;
         }
 
-        .setup-section label {
+        .setup-section label.section-title {
             display: block;
             font-size: 0.85rem;
             color: rgba(255, 255, 255, 0.7);
             margin-bottom: 8px;
             font-weight: 500;
+        }
+
+        /* セレクターボタン（共通） */
+        .selector-group {
+            display: flex;
+            gap: 10px;
+        }
+
+        .selector-btn {
+            flex: 1;
+            background: rgba(255, 255, 255, 0.15);
+            border: 2px solid transparent;
+            color: #ffffff;
+            padding: 12px;
+            border-radius: 12px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-align: center;
+        }
+
+        .selector-btn.active {
+            border-color: #007aff;
+            background: rgba(0, 122, 255, 0.2);
         }
 
         /* 写真選択ボタン */
@@ -99,38 +132,15 @@
             font-weight: 600;
             font-size: 0.9rem;
             cursor: pointer;
+            margin-bottom: 4px;
         }
         
         .file-status {
             font-size: 0.8rem;
             color: #4cd964;
-            margin-top: 6px;
             text-align: center;
             display: none;
-        }
-
-        /* 文字色選択（トグル形式） */
-        .color-selector {
-            display: flex;
-            gap: 10px;
-        }
-
-        .color-btn {
-            flex: 1;
-            background: rgba(255, 255, 255, 0.15);
-            border: 2px solid transparent;
-            color: #ffffff;
-            padding: 12px;
-            border-radius: 12px;
-            font-size: 0.9rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-
-        .color-btn.active {
-            border-color: #007aff;
-            background: rgba(0, 122, 255, 0.2);
+            margin-bottom: 8px;
         }
 
         /* 開始ボタン */
@@ -145,6 +155,7 @@
             font-weight: 600;
             cursor: pointer;
             box-shadow: 0 4px 12px rgba(0, 122, 255, 0.3);
+            margin-top: 10px;
         }
 
         .start-btn:disabled {
@@ -162,10 +173,10 @@
            2. メイン画面（テキスト表示）のスタイル
         ------------------------------------- */
         #main-screen {
-            display: none; /* 初期状態は非表示 */
+            display: none;
         }
 
-        /* テキストエリア（完全透明、余計なボタンは一切なし） */
+        /* テキストエリア（完全透明、ボタンなし） */
         #memo-text {
             flex-grow: 1;
             width: 100%;
@@ -178,13 +189,13 @@
             padding: 10px;
             -webkit-appearance: none;
             
-            /* どんな背景でも文字が見えるようにする強力なシャドウ */
+            /* 強力な文字シャドウ（視認性確保） */
             text-shadow: 2px 2px 6px rgba(0, 0, 0, 0.9), -1px -1px 3px rgba(0, 0, 0, 0.5);
         }
 
-        /* JavaScriptで動的に文字色を切り替えるクラス */
+        /* 文字色のクラス */
         .text-color-white { color: #ffffff !important; }
-        .text-color-gray { color: #cccccc !important; } /* 見やすいライトグレー */
+        .text-color-gray { color: #cccccc !important; } /* 背景を邪魔しない明るいグレー */
 
         #memo-text::placeholder {
             color: rgba(255, 255, 255, 0.4);
@@ -194,24 +205,42 @@
 </head>
 <body>
 
-    <div id="bg-container"></div>
+    <div id="bg-wrapper">
+        <div id="bg-img-1" class="bg-img"></div>
+        <div id="bg-img-2" class="bg-img"></div>
+    </div>
 
     <div id="setup-screen" class="screen">
         <div class="setup-card">
             <h2>アプリの設定</h2>
             
             <div class="setup-section">
-                <label>① 背景写真</label>
-                <label for="image-upload" class="file-label">📸 写真を設定する</label>
-                <input type="file" id="image-upload" accept="image/*">
-                <div id="file-status" class="file-status">✓ 写真が読み込まれました</div>
+                <label class="section-title">画像の枚数</label>
+                <div class="selector-group">
+                    <button type="button" class="selector-btn count-btn active" data-count="1">1枚</button>
+                    <button type="button" class="selector-btn count-btn" data-count="2">2枚 (横並び)</button>
+                </div>
             </div>
 
             <div class="setup-section">
-                <label>② 文字の色</label>
-                <div class="color-selector">
-                    <button type="button" class="color-btn active" data-color="white">白色</button>
-                    <button type="button" class="color-btn" data-color="gray">グレー</button>
+                <label class="section-title" id="photo-title-1">背景写真</label>
+                <label for="image-upload-1" class="file-label">📸 写真を選択する</label>
+                <input type="file" id="image-upload-1" accept="image/*">
+                <div id="file-status-1" class="file-status">✓ 1枚目が読み込まれました</div>
+                
+                <div id="photo-2-section" style="display: none; margin-top: 15px;">
+                    <label class="section-title">2枚目の写真</label>
+                    <label for="image-upload-2" class="file-label">📸 写真を選択する</label>
+                    <input type="file" id="image-upload-2" accept="image/*">
+                    <div id="file-status-2" class="file-status">✓ 2枚目が読み込まれました</div>
+                </div>
+            </div>
+
+            <div class="setup-section">
+                <label class="section-title">文字の色</label>
+                <div class="selector-group">
+                    <button type="button" class="selector-btn color-btn active" data-color="white">白色</button>
+                    <button type="button" class="selector-btn color-btn" data-color="gray">グレー</button>
                 </div>
             </div>
 
@@ -225,9 +254,16 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', () => {
-            const bgContainer = document.getElementById('bg-container');
-            const imageUpload = document.getElementById('image-upload');
-            const fileStatus = document.getElementById('file-status');
+            const bgImg1 = document.getElementById('bg-img-1');
+            const bgImg2 = document.getElementById('bg-img-2');
+            const imageUpload1 = document.getElementById('image-upload-1');
+            const imageUpload2 = document.getElementById('image-upload-2');
+            const fileStatus1 = document.getElementById('file-status-1');
+            const fileStatus2 = document.getElementById('file-status-2');
+            const photo2Section = document.getElementById('photo-2-section');
+            const photoTitle1 = document.getElementById('photo-title-1');
+            
+            const countButtons = document.querySelectorAll('.count-btn');
             const colorButtons = document.querySelectorAll('.color-btn');
             const startBtn = document.getElementById('start-btn');
             
@@ -235,27 +271,39 @@
             const mainScreen = document.getElementById('main-screen');
             const memoText = document.getElementById('memo-text');
 
-            let selectedColor = 'white'; // デフォルトは白
-            let currentObjectURL = null;
+            let imageCount = 1;
+            let selectedColor = 'white';
+            let img1URL = null;
+            let img2URL = null;
 
-            // 1. 画像が選択された時の処理
-            imageUpload.addEventListener('change', (event) => {
-                const file = event.target.files[0];
-                if (!file) return;
-
-                if (currentObjectURL) {
-                    URL.revokeObjectURL(currentObjectURL);
+            // 決定ボタンを押せるかチェックする関数
+            function validateForm() {
+                if (imageCount === 1) {
+                    startBtn.disabled = !img1URL;
+                } else {
+                    startBtn.disabled = !(img1URL && img2URL);
                 }
+            }
 
-                currentObjectURL = URL.createObjectURL(file);
-                bgContainer.style.backgroundImage = `url(${currentObjectURL})`;
-                
-                // 選択状態のUI更新
-                fileStatus.style.display = 'block';
-                startBtn.disabled = false; // 写真が選ばれたらスタート可能に
+            // 枚数切り替え
+            countButtons.forEach(button => {
+                button.addEventListener('click', () => {
+                    countButtons.forEach(btn => btn.classList.remove('active'));
+                    button.classList.add('active');
+                    imageCount = parseInt(button.getAttribute('data-count'), 10);
+                    
+                    if (imageCount === 1) {
+                        photo2Section.style.display = 'none';
+                        photoTitle1.textContent = '背景写真';
+                    } else {
+                        photo2Section.style.display = 'block';
+                        photoTitle1.textContent = '1枚目の写真';
+                    }
+                    validateForm();
+                });
             });
 
-            // 2. 文字色ボタンの切り替え処理
+            // 文字色切り替え
             colorButtons.forEach(button => {
                 button.addEventListener('click', () => {
                     colorButtons.forEach(btn => btn.classList.remove('active'));
@@ -264,24 +312,49 @@
                 });
             });
 
-            // 3. 決定ボタンを押してメイン画面へ進む処理
+            // 1枚目の写真読み込み
+            imageUpload1.addEventListener('change', (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                if (img1URL) URL.revokeObjectURL(img1URL);
+                img1URL = URL.createObjectURL(file);
+                bgImg1.style.backgroundImage = `url(${img1URL})`;
+                fileStatus1.style.display = 'block';
+                validateForm();
+            });
+
+            // 2枚目の写真読み込み
+            imageUpload2.addEventListener('change', (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                if (img2URL) URL.revokeObjectURL(img2URL);
+                img2URL = URL.createObjectURL(file);
+                bgImg2.style.backgroundImage = `url(${img2URL})`;
+                fileStatus2.style.display = 'block';
+                validateForm();
+            });
+
+            // 決定ボタン処理
             startBtn.addEventListener('click', () => {
-                // 文字色のクラスを適用
+                // 文字色クラスの適用
                 if (selectedColor === 'white') {
                     memoText.classList.add('text-color-white');
                 } else {
                     memoText.classList.add('text-color-gray');
                 }
 
-                // 画面切り替え
+                // 枚数に応じて2枚目のエリアを非表示、または表示
+                if (imageCount === 1) {
+                    bgImg2.style.display = 'none';
+                } else {
+                    bgImg2.style.display = 'block';
+                }
+
+                // 画面の切り替え
                 setupScreen.style.display = 'none';
                 mainScreen.style.display = 'flex';
-                
-                // 設定画面の背景マスクを解除して写真を100%綺麗に見せる
                 setupScreen.style.backgroundColor = 'transparent'; 
-                
-                // 自動でテキストエリアにフォーカスを合わせる
-                memoText.focus();
+                memoText.focus(); // 自動で入力状態にする
             });
         });
     </script>
