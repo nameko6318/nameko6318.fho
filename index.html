@@ -29,17 +29,25 @@
             width: 100%;
             height: 100%;
             display: flex;
-            gap: 0; /* 隙間をゼロに固定 */
+            gap: 0; /* 枠自体の隙間はゼロに固定 */
             z-index: 1;
         }
 
+        /* 【基本設定】1枚のときは画面いっぱいに広げる */
         .bg-img {
             flex: 1;
             height: 100%;
             background-size: cover;
             background-position: center;
-            background-color: #333;
+            background-color: #121212;
             transition: background-image 0.4s ease;
+        }
+
+        /* 💡【新機能】2枚選択された時、画像全体が絶対に切り取られないようにする設定 */
+        #bg-wrapper.two-images .bg-img {
+            background-size: contain;   /* 画像の全体が必ず枠内に収まるように縮小 */
+            background-repeat: no-repeat; /* 画像が繰り返し表示されるのを防ぐ */
+            background-position: center;  /* 枠の中央に配置する */
         }
 
         /* 画面共通レイアウト */
@@ -195,7 +203,7 @@
 
         /* 文字色のクラス */
         .text-color-white { color: #ffffff !important; }
-        .text-color-gray { color: #cccccc !important; } /* 背景を邪魔しない明るいグレー */
+        .text-color-gray { color: #cccccc !important; } 
 
         #memo-text::placeholder {
             color: rgba(255, 255, 255, 0.4);
@@ -254,6 +262,7 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', () => {
+            const bgWrapper = document.getElementById('bg-wrapper');
             const bgImg1 = document.getElementById('bg-img-1');
             const bgImg2 = document.getElementById('bg-img-2');
             const imageUpload1 = document.getElementById('image-upload-1');
@@ -276,7 +285,6 @@
             let img1URL = null;
             let img2URL = null;
 
-            // 決定ボタンを押せるかチェックする関数
             function validateForm() {
                 if (imageCount === 1) {
                     startBtn.disabled = !img1URL;
@@ -312,7 +320,7 @@
                 });
             });
 
-            // 1枚目の写真読み込み
+            // 1枚目読み込み
             imageUpload1.addEventListener('change', (e) => {
                 const file = e.target.files[0];
                 if (!file) return;
@@ -323,7 +331,7 @@
                 validateForm();
             });
 
-            // 2枚目の写真読み込み
+            // 2枚目読み込み
             imageUpload2.addEventListener('change', (e) => {
                 const file = e.target.files[0];
                 if (!file) return;
@@ -336,25 +344,25 @@
 
             // 決定ボタン処理
             startBtn.addEventListener('click', () => {
-                // 文字色クラスの適用
                 if (selectedColor === 'white') {
                     memoText.classList.add('text-color-white');
                 } else {
                     memoText.classList.add('text-color-gray');
                 }
 
-                // 枚数に応じて2枚目のエリアを非表示、または表示
+                // 💡【修正】2枚の時だけ専用の全体表示CSS（two-imagesクラス）を適用する
                 if (imageCount === 1) {
                     bgImg2.style.display = 'none';
+                    bgWrapper.classList.remove('two-images');
                 } else {
                     bgImg2.style.display = 'block';
+                    bgWrapper.classList.add('two-images');
                 }
 
-                // 画面の切り替え
                 setupScreen.style.display = 'none';
                 mainScreen.style.display = 'flex';
                 setupScreen.style.backgroundColor = 'transparent'; 
-                memoText.focus(); // 自動で入力状態にする
+                memoText.focus();
             });
         });
     </script>
